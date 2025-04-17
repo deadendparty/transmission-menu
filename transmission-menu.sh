@@ -63,6 +63,25 @@ map_name_to_tid() {
   echo "$serialized"
 }
 
+control_torrent() {
+  torrent_id="$1"
+  controls=( "Remove" "Stop" "Resume" "Kill daemon" )
+
+  selected_control=$(printf '%s\n' "${controls[@]}" | rofi -dmenu -i -p "Controls")
+  [[ -z "$selected_control" ]] && return
+
+  case "$selected_control" in
+    "Remove")
+      transmission-remote -t "$torrent_id" -r
+      # Kill daemon if it was the last running download
+      torrents=$(transmission-remote -j -l | jq -c ".arguments.torrents")
+      [[ -z "$torrents" ]] && killall transmission-daemon
+      ;;
+    "Stop") transmission-remote -t "$torrent_id" -S;;
+    "Resume") transmission-remote -t "$torrent_id" -s;;
+    "Kill daemon") killall transmission-daemon;;
+  esac
+}
 get_downloads() {
   raw_downloads="transmission-remote -l"
 
