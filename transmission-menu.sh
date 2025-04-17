@@ -12,6 +12,39 @@ get_status_name() {
     6) echo "Seeding";;
   esac
 }
+
+display_detail() {
+  torrent_id="$1"
+
+  raw_detail=$(
+    transmission-remote -j -t"$torrent_id" -l \
+    | jq ".arguments.torrents.[]"
+  )
+
+  raw_status=$(jq -r ".status" <<< "$raw_detail")
+  raw_eta=$(jq -r ".eta" <<< "$raw_detail")
+  raw_speed=$(jq -r ".rateDownload" <<< "$raw_detail")
+  raw_size_left=$(jq -r ".leftUntilDone" <<< "$raw_detail")
+  raw_size=$(jq -r ".sizeWhenDone" <<< "$raw_detail")
+
+  # avoid division by 0
+  raw_size_or_one=$( [[ "$raw_size" -eq 0 ]] && echo 1 || echo "$raw_size" )
+
+  downloaded=$(( raw_size - raw_size_left ))
+  percentage=$(( downloaded * 100 / raw_size_or_one ))
+
+  status=$(get_status_name "$raw_status")
+
+  eta=$( [[ "$raw_eta" -lt 0 ]] && echo "N/A" || echo "${raw_eta}s" )
+
+  size=$(numfmt --to=iec --suffix=B "$raw_size")
+  downloaded=$(numfmt --to=iec --suffix=B "$downloaded")
+  speed=$(numfmt --to=iec --suffix=B "$raw_speed")
+
+  processed="${status} ${downloaded}/${size} (${percentage}%) at ${speed}/s ETA: ${eta}"
+  rofi -dmenu -i -p "Detail" <<< "$processed"
+}
+
 map_name_to_tid() {
   torrents=$(transmission-remote -j -l | jq -c ".arguments.torrents")
   [[ -z "$torrents" ]] && return
