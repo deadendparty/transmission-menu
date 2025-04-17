@@ -82,3 +82,24 @@ control_torrent() {
     "Kill daemon") killall transmission-daemon;;
   esac
 }
+
+# Ensure the daemon is running
+[[ $(pidof transmission-daemon) ]] || exit
+
+serialized_map=$(map_name_to_tid)
+eval "$serialized_map"
+# name_to_tid HASHMAP is now available
+
+names=$(printf '%s\n' "${!name_to_tid[@]}")  # separated by \n
+selected_name=$(rofi -dmenu -i -p "Name" <<< "$names")
+[[ -z "$selected_name" ]] && exit
+
+torrent_id="${name_to_tid["$selected_name"]}"
+
+# ESC - Refresh
+# ENTER - Proceed to control selected torrent
+while [[ -z "$confirmation_detail" ]]; do
+  confirmation_detail=$(display_detail "$torrent_id")
+done
+
+control_torrent "$torrent_id"
