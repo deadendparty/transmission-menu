@@ -1,5 +1,17 @@
 #!/usr/bin/bash
 
+get_status_name() {
+  status_code="$1"
+  case "$status_code" in
+    0) echo "Stopped";;
+    1) echo "Check queue";;
+    2) echo "Checking";;
+    3) echo "Download Queue";;
+    4) echo "Downloading";;
+    5) echo "Seed Queue";;
+    6) echo "Seeding";;
+  esac
+}
 map_name_to_tid() {
   torrents=$(transmission-remote -j -l | jq -c ".arguments.torrents")
   [[ -z "$torrents" ]] && return
