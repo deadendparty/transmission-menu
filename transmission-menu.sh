@@ -35,7 +35,7 @@ display_detail() {
 }
 
 map_name_to_tid() {
-  torrents=$(transmission-remote -j -l | jq -c ".arguments.torrents")
+  torrents=$(transmission-remote -j -l | jq -c ".arguments.torrents.[]")
   [[ -z "$torrents" ]] && return
 
   declare -A name_to_tid
@@ -45,7 +45,7 @@ map_name_to_tid() {
     name=$(jq -r ".name" <<< "$torrent")
     tid=$(jq -r ".id" <<< "$torrent")
     name_to_tid["$name"]="$tid"
-  done < <(jq -c ".[]" <<< "$torrents")
+  done <<< "$torrents"
 
   # Make a string out of the HASHMAP
   serialized=$(declare -p name_to_tid)
@@ -63,7 +63,7 @@ control_torrent() {
     "Remove")
       transmission-remote -t "$torrent_id" -r
       # Kill daemon if it was the last running download
-      torrents=$(transmission-remote -j -l | jq -c ".arguments.torrents")
+      torrents=$(transmission-remote -j -l | jq -c ".arguments.torrents.[]")
       [[ -z "$torrents" ]] && killall transmission-daemon
       ;;
     "Stop") transmission-remote -t "$torrent_id" -S;;
