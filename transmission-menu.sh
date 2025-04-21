@@ -1,27 +1,16 @@
 #!/usr/bin/bash
 
-get_status_name() {
-  status_code="$1"
-  case "$status_code" in
-    0) echo "Stopped";;
-    1) echo "Check queue";;
-    2) echo "Checking";;
-    3) echo "Download Queue";;
-    4) echo "Downloading";;
-    5) echo "Seed Queue";;
-    6) echo "Seeding";;
-  esac
-}
 
 display_detail() {
   torrent_id="$1"
+  local -n download_status="$2"  # make a reference to DOWNLOAD_STATUS
 
   raw_detail=$(
     transmission-remote -j -t"$torrent_id" -l \
     | jq ".arguments.torrents.[]"
   )
 
-  raw_status=$(jq -r ".status" <<< "$raw_detail")
+  status_code=$(jq -r ".status" <<< "$raw_detail")
   raw_eta=$(jq -r ".eta" <<< "$raw_detail")
   raw_speed=$(jq -r ".rateDownload" <<< "$raw_detail")
   raw_size_left=$(jq -r ".leftUntilDone" <<< "$raw_detail")
@@ -33,7 +22,7 @@ display_detail() {
   downloaded=$(( raw_size - raw_size_left ))
   percentage=$(( downloaded * 100 / raw_size_or_one ))
 
-  status=$(get_status_name "$raw_status")
+  status="${download_status["$status_code"]}"
 
   eta=$( [[ "$raw_eta" -lt 0 ]] && echo "N/A" || echo "${raw_eta}s" )
 
@@ -94,12 +83,22 @@ names=$(printf '%s\n' "${!name_to_tid[@]}")  # separated by \n
 selected_name=$(rofi -dmenu -i -p "Name" <<< "$names")
 [[ -z "$selected_name" ]] && exit
 
+declare -A DOWNLOAD_STATUS=(
+  [0]="Stopped"
+  [1]="Check Queue"
+  [2]="Checking"
+  [3]="Download Queue"
+  [4]="Downloading"
+  [5]="Seed Queue"
+  [6]="Seeding"
+)
+
 torrent_id="${name_to_tid["$selected_name"]}"
 
 # ESC - Refresh
 # ENTER - Proceed to control selected torrent
 while [[ -z "$confirmation_detail" ]]; do
-  confirmation_detail=$(display_detail "$torrent_id")
+  confirmation_detail=$(display_detail "$torrent_id" "DOWNLOAD_STATUS")
 done
 
 control_torrent "$torrent_id"
