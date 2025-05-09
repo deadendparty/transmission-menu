@@ -31,9 +31,11 @@ display_detail() {
   size=$(numfmt --to=iec --suffix=B "$raw_size")
   speed=$(numfmt --to=iec --suffix=B "$raw_speed")
 
-  local processed
-  processed="${status} ${downloaded}/${size} (${percentage}%) at ${speed}/s ETA: ${eta}"
-  rofi -dmenu -i -p "Detail" <<< "$processed"
+  local detail=(
+    "${status} ${downloaded}/${size} (${percentage}%)"
+    "at ${speed}/s" "ETA: ${eta}"
+  )
+  printf '%s\n' "${detail[@]}" | rofi -dmenu -i -p "Detail"
 }
 
 map_name_to_tid() {
