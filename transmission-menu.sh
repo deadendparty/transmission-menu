@@ -78,33 +78,37 @@ control_torrent() {
   esac
 }
 
+load_menus() {
+  local name_to_tid
+  eval "$(map_name_to_tid)"
+
+  # Display the torrent's names
+  names=$(printf '%s\n' "${!name_to_tid[@]}")  # separated by \n
+  selected_name=$(rofi -dmenu -i -p "Name" <<< "$names")
+  [[ -z "$selected_name" ]] && exit
+
+  # Display the torrent's details
+  # ESC - Refresh
+  # ENTER - Proceed to control selected torrent
+  torrent_id="${name_to_tid["$selected_name"]}"
+  local -A DOWNLOAD_STATUS=(
+    [0]="Stopped"
+    [1]="Check Queue"
+    [2]="Checking"
+    [3]="Download Queue"
+    [4]="Downloading"
+    [5]="Seed Queue"
+    [6]="Seeding"
+  )
+  while [[ -z "$confirmation_detail" ]]; do
+    confirmation_detail=$(display_detail "$torrent_id" "DOWNLOAD_STATUS")
+  done
+
+  # Perform operations on the selected torrent
+  control_torrent "$torrent_id"
+}
+
 # Ensure the daemon is running
 [[ $(pidof transmission-daemon) ]] || exit
 
-serialized_map=$(map_name_to_tid)
-eval "$serialized_map"
-# name_to_tid HASHMAP is now available
-
-names=$(printf '%s\n' "${!name_to_tid[@]}")  # separated by \n
-selected_name=$(rofi -dmenu -i -p "Name" <<< "$names")
-[[ -z "$selected_name" ]] && exit
-
-declare -A DOWNLOAD_STATUS=(
-  [0]="Stopped"
-  [1]="Check Queue"
-  [2]="Checking"
-  [3]="Download Queue"
-  [4]="Downloading"
-  [5]="Seed Queue"
-  [6]="Seeding"
-)
-
-torrent_id="${name_to_tid["$selected_name"]}"
-
-# ESC - Refresh
-# ENTER - Proceed to control selected torrent
-while [[ -z "$confirmation_detail" ]]; do
-  confirmation_detail=$(display_detail "$torrent_id" "DOWNLOAD_STATUS")
-done
-
-control_torrent "$torrent_id"
+load_menus
