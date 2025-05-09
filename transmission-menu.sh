@@ -3,7 +3,7 @@
 
 display_detail() {
   local torrent_id="$1"
-  local -n download_status="$2"  # make a reference to DOWNLOAD_STATUS
+  local -n download_status="$2"  # Reference to DOWNLOAD_STATUS
 
   local raw_detail
   raw_detail=$(
@@ -18,13 +18,11 @@ display_detail() {
   raw_size_left=$(jq -r ".leftUntilDone" <<< "$raw_detail")
   raw_size=$(jq -r ".sizeWhenDone" <<< "$raw_detail")
 
-  # avoid division by 0
-  local raw_size_or_one
+  # Processing
+  local raw_size_or_one raw_downloaded percentage status eta
   raw_size_or_one=$( [[ "$raw_size" -eq 0 ]] && echo 1 || echo "$raw_size" )
-
-  local downloaded percentage status eta
   raw_downloaded=$(( raw_size - raw_size_left ))
-  percentage=$(( downloaded * 100 / raw_size_or_one ))
+  percentage=$(( raw_downloaded * 100 / raw_size_or_one ))
   status="${download_status["$status_code"]}"
   eta=$( [[ "$raw_eta" -lt 0 ]] && echo "N/A" || echo "${raw_eta}s" )
 
@@ -56,20 +54,23 @@ map_name_to_tid() {
   declare -p name_to_tid
 }
 
-control_torrent() {
+perform_operation() {
   local torrent_id="$1"
-  local controls=( "Remove" "Stop" "Resume" "Kill daemon" )
 
-  local selected_control
-  selected_control=$(printf '%s\n' "${controls[@]}" | rofi -dmenu -i -p "Controls")
-  [[ -z "$selected_control" ]] && return
+  local operations=( "Remove" "Stop" "Resume" "Kill daemon" )
+  local selected
+  selected=$(
+    printf '%s\n' "${operations[@]}" |
+      rofi -dmenu -i -p "Controls"
+  )
+  [[ -z "$selected" ]] && return
 
-  case "$selected_control" in
+  case "$selected" in
     "Remove")
       transmission-remote -t "$torrent_id" -r
-      # Kill daemon if it was the last running download
       local torrents
       torrents=$(transmission-remote -j -l | jq -c ".arguments.torrents.[]")
+      # Kill daemon if it was the last running download
       [[ -z "$torrents" ]] && killall transmission-daemon
       ;;
     "Stop") transmission-remote -t "$torrent_id" -S;;
@@ -83,13 +84,11 @@ load_menus() {
   eval "$(map_name_to_tid)"
 
   # Display the torrent's names
-  names=$(printf '%s\n' "${!name_to_tid[@]}")  # separated by \n
+  names=$(printf '%s\n' "${!name_to_tid[@]}")
   selected_name=$(rofi -dmenu -i -p "Name" <<< "$names")
   [[ -z "$selected_name" ]] && exit
 
   # Display the torrent's details
-  # ESC - Refresh
-  # ENTER - Proceed to control selected torrent
   torrent_id="${name_to_tid["$selected_name"]}"
   local -A DOWNLOAD_STATUS=(
     [0]="Stopped"
@@ -100,12 +99,14 @@ load_menus() {
     [5]="Seed Queue"
     [6]="Seeding"
   )
+  # ESC - Refresh
+  # ENTER - Proceed to control selected torrent
   while [[ -z "$confirmation_detail" ]]; do
     confirmation_detail=$(display_detail "$torrent_id" "DOWNLOAD_STATUS")
   done
 
   # Perform operations on the selected torrent
-  control_torrent "$torrent_id"
+  perform_operation "$torrent_id"
 }
 
 # Ensure the daemon is running
