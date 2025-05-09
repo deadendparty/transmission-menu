@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 start_magnet() {
-  magnet="$1"
+  local magnet="$1"
 
   transmission-daemon
   # Might take a while due to the daemons' lazyness

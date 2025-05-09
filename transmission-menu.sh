@@ -2,14 +2,16 @@
 
 
 display_detail() {
-  torrent_id="$1"
+  local torrent_id="$1"
   local -n download_status="$2"  # make a reference to DOWNLOAD_STATUS
 
+  local raw_detail
   raw_detail=$(
-    transmission-remote -j -t"$torrent_id" -l \
-    | jq ".arguments.torrents.[]"
+    transmission-remote -j -t"$torrent_id" -l |
+      jq ".arguments.torrents.[]"
   )
 
+  local status_code raw_eta raw_speed raw_size_left raw_size
   status_code=$(jq -r ".status" <<< "$raw_detail")
   raw_eta=$(jq -r ".eta" <<< "$raw_detail")
   raw_speed=$(jq -r ".rateDownload" <<< "$raw_detail")
@@ -17,30 +19,33 @@ display_detail() {
   raw_size=$(jq -r ".sizeWhenDone" <<< "$raw_detail")
 
   # avoid division by 0
+  local raw_size_or_one
   raw_size_or_one=$( [[ "$raw_size" -eq 0 ]] && echo 1 || echo "$raw_size" )
 
-  downloaded=$(( raw_size - raw_size_left ))
+  local downloaded percentage status eta
+  raw_downloaded=$(( raw_size - raw_size_left ))
   percentage=$(( downloaded * 100 / raw_size_or_one ))
-
   status="${download_status["$status_code"]}"
-
   eta=$( [[ "$raw_eta" -lt 0 ]] && echo "N/A" || echo "${raw_eta}s" )
 
+  local downloaded size speed
+  downloaded=$(numfmt --to=iec --suffix=B "$raw_downloaded")
   size=$(numfmt --to=iec --suffix=B "$raw_size")
-  downloaded=$(numfmt --to=iec --suffix=B "$downloaded")
   speed=$(numfmt --to=iec --suffix=B "$raw_speed")
 
+  local processed
   processed="${status} ${downloaded}/${size} (${percentage}%) at ${speed}/s ETA: ${eta}"
   rofi -dmenu -i -p "Detail" <<< "$processed"
 }
 
 map_name_to_tid() {
+  local torrents
   torrents=$(transmission-remote -j -l | jq -c ".arguments.torrents.[]")
   [[ -z "$torrents" ]] && return
 
-  declare -A name_to_tid
+  local torrent name tid
+  local -A name_to_tid
 
-  # Map name: id
   while IFS= read -r torrent; do
     name=$(jq -r ".name" <<< "$torrent")
     tid=$(jq -r ".id" <<< "$torrent")
@@ -48,14 +53,14 @@ map_name_to_tid() {
   done <<< "$torrents"
 
   # Make a string out of the HASHMAP
-  serialized=$(declare -p name_to_tid)
-  echo "$serialized"
+  declare -p name_to_tid
 }
 
 control_torrent() {
-  torrent_id="$1"
-  controls=( "Remove" "Stop" "Resume" "Kill daemon" )
+  local torrent_id="$1"
+  local controls=( "Remove" "Stop" "Resume" "Kill daemon" )
 
+  local selected_control
   selected_control=$(printf '%s\n' "${controls[@]}" | rofi -dmenu -i -p "Controls")
   [[ -z "$selected_control" ]] && return
 
@@ -63,6 +68,7 @@ control_torrent() {
     "Remove")
       transmission-remote -t "$torrent_id" -r
       # Kill daemon if it was the last running download
+      local torrents
       torrents=$(transmission-remote -j -l | jq -c ".arguments.torrents.[]")
       [[ -z "$torrents" ]] && killall transmission-daemon
       ;;
