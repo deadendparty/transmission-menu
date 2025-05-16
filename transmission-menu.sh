@@ -32,7 +32,7 @@ display_detail() {
   speed=$(numfmt --to=iec --suffix=B "$raw_speed")
 
   local detail=(
-    "${status} ${downloaded}/${size} (${percentage}%)"
+    "$status" "${downloaded}/${size} (${percentage}%)"
     "at ${speed}/s" "ETA: ${eta}"
   )
   printf '%s\n' "${detail[@]}" | rofi -dmenu -i -p "Detail"
