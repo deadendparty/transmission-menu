@@ -3,7 +3,7 @@
 
 display_detail() {
   local torrent_id="$1"
-  local -n download_status="$2"  # Reference to DOWNLOAD_STATUS
+  local -n status_code_to_name="$2"  # Reference to $2
 
   local raw_detail
   raw_detail=$(
@@ -23,7 +23,7 @@ display_detail() {
   raw_size_or_one=$( [[ "$raw_size" -eq 0 ]] && echo 1 || echo "$raw_size" )
   raw_downloaded=$(( raw_size - raw_size_left ))
   percentage=$(( raw_downloaded * 100 / raw_size_or_one ))
-  status="${download_status["$status_code"]}"
+  status="${status_code_to_name["$status_code"]}"
   eta=$( [[ "$raw_eta" -lt 0 ]] && echo "N/A" || echo "${raw_eta}s" )
 
   local downloaded size speed
@@ -92,7 +92,7 @@ load_menus() {
 
   # Display the torrent's details
   torrent_id="${name_to_tid["$selected_name"]}"
-  local -A DOWNLOAD_STATUS=(
+  local -A STATUS_CODE_TO_NAME=(
     [0]="Stopped"
     [1]="Check Queue"
     [2]="Checking"
@@ -104,7 +104,7 @@ load_menus() {
   # ESC - Refresh
   # ENTER - Proceed to control selected torrent
   while [[ -z "$confirmation_detail" ]]; do
-    confirmation_detail=$(display_detail "$torrent_id" "DOWNLOAD_STATUS")
+    confirmation_detail=$(display_detail "$torrent_id" "STATUS_CODE_TO_NAME")
   done
 
   # Perform operations on the selected torrent
